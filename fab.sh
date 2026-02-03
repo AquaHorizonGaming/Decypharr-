@@ -81,16 +81,16 @@ get_ctid() {
 ensure_template() {
   msg "Locating latest Debian 12 LXC template"
 
-  TEMPLATE=$(pveam available | awk '/debian-12-standard/ && /amd64/ {print $2}' | sort -V | tail -n1)
-
+  TEMPLATE=$(pveam available "$TEMPLATE_STORAGE" | awk '/debian-12-standard/ && /amd64/ {print $2}' | sort -V | tail -n1)
   [[ -z "$TEMPLATE" ]] && error_exit "Unable to locate Debian 12 LXC template"
 
-  if ! pveam list "$STORAGE" | grep -q "$TEMPLATE"; then
+  if ! pveam list "$TEMPLATE_STORAGE" | grep -q "$TEMPLATE"; then
     msg "Downloading Debian 12 template: $TEMPLATE"
     pveam update
-    pveam download "$STORAGE" "$TEMPLATE"
+    pveam download "$TEMPLATE_STORAGE" "$TEMPLATE"
   fi
 }
+
 
 # ----------------------
 # LXC Creation
@@ -99,16 +99,16 @@ ensure_template() {
 create_container() {
   msg "Creating LXC container (CTID: $CTID)"
 
-  pct create "$CTID" "$STORAGE:vztmpl/$TEMPLATE" \
-    --hostname "$HOSTNAME" \
-    --cores "$CORES" \
-    --memory "$MEMORY" \
-    --swap 512 \
-    --rootfs "$STORAGE:$DISK_SIZE" \
-    --net0 name=eth0,bridge=vmbr0,ip=dhcp \
-    --onboot 1 \
-    --unprivileged 1 \
-    --features nesting=1
+  pct create "$CTID" "$TEMPLATE_STORAGE:vztmpl/$TEMPLATE" \
+  --hostname "$HOSTNAME" \
+  --cores "$CORES" \
+  --memory "$MEMORY" \
+  --swap 512 \
+  --rootfs "$ROOTFS_STORAGE:$DISK_SIZE" \
+  --net0 name=eth0,bridge=vmbr0,ip=dhcp \
+  --onboot 1 \
+  --unprivileged 1 \
+  --features nesting=1
 
   pct start "$CTID"
 }
