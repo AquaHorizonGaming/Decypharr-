@@ -41,7 +41,7 @@ function check_root {
 
 function get_ctid {
   while true; do
-    read -rp "Enter CTID to use for Decypharr LXC: " CTID
+    read -rp "Enter CTID to use for Decypharr LXC: " CTID </dev/tty
 
     [[ -z "$CTID" ]] && echo "CTID cannot be empty." && continue
     [[ ! "$CTID" =~ ^[0-9]+$ ]] && echo "CTID must be a number." && continue
