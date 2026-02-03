@@ -49,7 +49,9 @@ check_root() {
 }
 
 check_proxmox() {
-  command -v pct >/dev/null 2>&1 || error_exit "This script must be run on a Proxmox host"
+  if ! command -v pct >/dev/null 2>&1; then
+    error_exit "This script must be run on a Proxmox host"
+  fi
 }
 
 get_ctid() {
