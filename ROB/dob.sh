@@ -122,15 +122,15 @@ create_container() {
   msg "Creating LXC CTID $CTID"
 
   pct create "$CTID" "$TEMPLATE_STORAGE:vztmpl/$TEMPLATE" \
-    --hostname "$HOSTNAME" \
-    --cores "$CORES" \
-    --memory "$MEMORY" \
-    --swap 512 \
-    --rootfs "$ROOTFS_STORAGE:$DISK_SIZE" \
-    --net0 name=eth0,bridge=vmbr0,ip=dhcp \
-    --onboot 1 \
-    --unprivileged 1 \
-    --features nesting=1
+  --hostname "$HOSTNAME" \
+  --cores "$CORES" \
+  --memory "$MEMORY" \
+  --swap 512 \
+  --rootfs "$ROOTFS_STORAGE:vm-${CTID}-disk-0,size=$DISK_SIZE" \
+  --net0 name=eth0,bridge=vmbr0,ip=dhcp \
+  --onboot 1 \
+  --unprivileged 1 \
+  --features nesting=1
 
   pct start "$CTID"
 }
