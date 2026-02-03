@@ -12,40 +12,43 @@ CORES="2"
 DISK_SIZE="8G"
 PORT="8282"
 REPO="sirrobot01/decypharr"
-TEMPLATE="local:vztmpl/debian-12-standard_12.0-1_amd64.tar.zst"
+TEMPLATE="debian-12-standard_12.0-1_amd64.tar.zst"
+STORAGE="local"
 
 # ----------------------
 # Helper Functions
 # ----------------------
 
-function header_info {
-  cat <<EOF
+header_info() {
+cat <<EOF
 ==============================
   Decypharr LXC Installer
 ==============================
 EOF
 }
 
-function error_exit {
+error_exit() {
   echo "❌ ERROR: $1"
   exit 1
 }
 
-function msg {
+msg() {
   echo -e "➡️ $1"
 }
 
-function check_root {
+check_root() {
   [[ "$(id -u)" -ne 0 ]] && error_exit "Run this script as root on the Proxmox host"
 }
 
-function get_ctid {
+check_proxmox() {
+  command -v pct >/dev/null 2>&1 || error_exit "This script must be run on a Proxmox host"
+}
+
+get_ctid() {
   while true; do
     read -rp "Enter CTID to use for Decypharr LXC: " CTID </dev/tty
-
     [[ -z "$CTID" ]] && echo "CTID cannot be empty." && continue
-    [[ ! "$CTID" =~ ^[0-9]+$ ]] && echo "CTID must be a number." && continue
-
+    [[ ! "$CTID" =~ ^[0-9]+$ ]] && echo "CTID must be numeric." && continue
     if pct status "$CTID" &>/dev/null; then
       echo "CTID $CTID already exists. Choose another."
     else
@@ -54,19 +57,27 @@ function get_ctid {
   done
 }
 
+ensure_template() {
+  if ! pveam list "$STORAGE" | grep -q "$TEMPLATE"; then
+    msg "Downloading Debian 12 LXC template"
+    pveam update
+    pveam download "$STORAGE" "$TEMPLATE"
+  fi
+}
+
 # ----------------------
 # LXC Creation
 # ----------------------
 
-function create_container {
+create_container() {
   msg "Creating LXC container (CTID: $CTID)"
 
-  pct create "$CTID" "$TEMPLATE" \
+  pct create "$CTID" "$STORAGE:vztmpl/$TEMPLATE" \
     --hostname "$HOSTNAME" \
     --cores "$CORES" \
     --memory "$MEMORY" \
     --swap 512 \
-    --rootfs local-lvm:"$DISK_SIZE" \
+    --rootfs "$STORAGE:$DISK_SIZE" \
     --net0 name=eth0,bridge=vmbr0,ip=dhcp \
     --onboot 1 \
     --unprivileged 1 \
@@ -79,7 +90,7 @@ function create_container {
 # Inside-Container Setup
 # ----------------------
 
-function install_dependencies {
+install_dependencies() {
   msg "Installing dependencies inside container"
 
   pct exec "$CTID" -- bash -c "
@@ -88,37 +99,33 @@ function install_dependencies {
   "
 }
 
-function install_decypharr_binary {
+install_decypharr_binary() {
   msg "Downloading Decypharr binary"
 
   pct exec "$CTID" -- bash -c "
     ARCH=\$(dpkg --print-architecture)
-
     case \"\$ARCH\" in
       amd64) BIN=decypharr-linux-amd64 ;;
       arm64) BIN=decypharr-linux-arm64 ;;
       *) echo 'Unsupported architecture'; exit 1 ;;
     esac
 
-    VERSION=\$(curl -fsSL https://api.github.com/repos/${REPO}/releases/latest | jq -r .tag_name)
+    VERSION=\$(curl -fsSL https://api.github.com/repos/${REPO}/releases/latest | jq -r '.tag_name')
+    [[ -z \"\$VERSION\" ]] && exit 1
 
-    curl -fsSL \
-      https://github.com/${REPO}/releases/download/\$VERSION/\$BIN \
+    curl -fsSL https://github.com/${REPO}/releases/download/\$VERSION/\$BIN \
       -o /usr/local/bin/decypharr
 
     chmod +x /usr/local/bin/decypharr
   "
 }
 
-function setup_config {
+setup_config() {
   msg "Creating config directory"
-
-  pct exec "$CTID" -- bash -c "
-    mkdir -p /opt/decypharr/config
-  "
+  pct exec "$CTID" -- mkdir -p /opt/decypharr/config
 }
 
-function create_service {
+create_service() {
   msg "Creating systemd service"
 
   pct exec "$CTID" -- bash -c "
@@ -143,19 +150,17 @@ systemctl enable --now decypharr
 "
 }
 
-function cleanup {
+cleanup() {
   msg "Cleaning up"
-
-  pct exec "$CTID" -- bash -c "
-    apt autoremove -y
-    apt clean
-  "
+  pct exec "$CTID" -- bash -c "apt autoremove -y && apt clean"
 }
 
-function done_msg {
+done_msg() {
+  LXC_IP=$(pct exec "$CTID" -- hostname -I | awk '{print $1}')
   echo ""
   echo "✅ Decypharr LXC installed successfully!"
-  echo "🌐 Web UI: http://<LXC-IP>:${PORT}"
+  echo "📡 LXC IP: $LXC_IP"
+  echo "🌐 Web UI: http://$LXC_IP:$PORT"
   echo "📁 Config Path: /opt/decypharr/config"
   echo ""
 }
@@ -166,7 +171,9 @@ function done_msg {
 
 header_info
 check_root
+check_proxmox
 get_ctid
+ensure_template
 create_container
 install_dependencies
 install_decypharr_binary
