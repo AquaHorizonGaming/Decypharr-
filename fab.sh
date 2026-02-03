@@ -22,6 +22,9 @@ PORT="8282"
 REPO="sirrobot01/decypharr"
 TEMPLATE=""
 STORAGE="local-lvm"
+TEMPLATE_STORAGE="local"
+ROOTFS_STORAGE="local-lvm"
+
 
 # ----------------------
 # Helper Functions
