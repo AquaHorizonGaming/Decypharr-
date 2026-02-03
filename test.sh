@@ -4,6 +4,7 @@
 # License: MIT
 
 set -euo pipefail
+exec </dev/tty
 
 APP="Decypharr"
 HOSTNAME="decypharr"
