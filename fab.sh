@@ -21,7 +21,7 @@ DISK_SIZE="8G"
 PORT="8282"
 REPO="sirrobot01/decypharr"
 TEMPLATE=""
-STORAGE="local"
+STORAGE="local-lvm"
 
 # ----------------------
 # Helper Functions
